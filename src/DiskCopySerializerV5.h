@@ -1,0 +1,21 @@
+#ifndef DFITODISKCOPY_DISKCOPY_SERIALIZER_V5_H
+#define DFITODISKCOPY_DISKCOPY_SERIALIZER_V5_H
+
+#include <cstdint>
+#include <vector>
+
+#include "SerializerInput.h"
+
+namespace dfitodiskcopy
+{
+    // Builds the run-info private blob for tag (3333,xx0A):
+    //   PATIENT + EXAM + RUN + IMAGE records (concatenated, parsed sequentially
+    //   by PrivateAttrRunCallBack on the receiver).
+    std::vector<std::uint8_t> BuildRunInfoBlobV5(const SerializerInput& in);
+
+    // Builds the image-info private blob for tag (9999,xx0A):
+    //   numberOfFrames * IMAGE record. Delivered last; triggers StoreImage.
+    std::vector<std::uint8_t> BuildImageInfoBlobV5(const SerializerInput& in);
+}
+
+#endif

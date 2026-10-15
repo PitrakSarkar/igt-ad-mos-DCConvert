@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+# DfiToDiskCopy exports a static library (dcconvertlib) that links DCMTK
+# publicly, so consumers must be able to resolve DCMTK too.
+include(CMakeFindDependencyMacro)
+find_dependency(DCMTK CONFIG)
+
+include("${CMAKE_CURRENT_LIST_DIR}/DfiToDiskCopyTargets.cmake")
+
+check_required_components(DfiToDiskCopy)
