@@ -82,6 +82,7 @@ namespace dfitodiskcopy
 
         bool pixelsConverted = false;     // pixels were normalised to mono16
         bool pixelsScaled = false;        // pixels were resized for --max-dim
+        bool pixelsMappedTo14Bit = false; // values rescaled/offset to DFI 14-bit range
         bool cbeiFromInput = false;       // CBEI recipes copied from input blob
 
         std::size_t runInfoBytes = 0;     // size of the (3333,100A) blob

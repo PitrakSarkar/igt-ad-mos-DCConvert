@@ -70,7 +70,7 @@ int main()
     std::memcpy(&nativeRun, runV3.data() + 800, sizeof(nativeRun));
     if (nativeRun.nrImage != 10 || nativeRun.irisAperture != 141 ||
         nativeRun.cleanCircleRadius.radius != 500 ||
-        std::strcmp(nativeRun.cbeiNormal.cttTasteFile, "CTT_FM_04.params.ini") != 0)
+        std::strcmp(nativeRun.cbeiNormal.cttTasteFile, "CTT_FM_00.params.ini") != 0)
     {
         std::printf("FAIL: VER_3 display settings\n");
         ++failures;
@@ -81,7 +81,7 @@ int main()
     in.sourceRunInfoBlobSize = sourceV5.size();
     const auto convertedV3 = BuildRunInfoBlobV3(in);
     std::memcpy(&nativeRun, convertedV3.data() + 800, sizeof(nativeRun));
-    if (std::strcmp(nativeRun.cbeiNormal.cttTasteFile, "CTT_FM_04.params.ini") != 0 ||
+    if (std::strcmp(nativeRun.cbeiNormal.cttTasteFile, "CTT_FM_00.params.ini") != 0 ||
         nativeRun.cleanCircleRadius.radius != 500)
     {
         std::printf("FAIL: VER_5 to VER_3 recipe conversion\n");

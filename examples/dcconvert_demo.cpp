@@ -66,8 +66,8 @@ namespace
             r.intensifierSize.c_str(), r.iiFormat, r.iiRadius,
             r.columns, r.rows, r.frames,
             r.pixelsScaled ? " (resized)" : "",
-            r.pixelsConverted ? "converted to 16-bit MONOCHROME2"
-                              : "already 16-bit MONOCHROME2 (unchanged)",
+            r.pixelsMappedTo14Bit ? "rescaled to native 14-bit (0..16383)"
+                                  : "native 14-bit range (values unchanged)",
             r.cbeiFromInput ? "copied from input (3333,100A)"
                             : "filled with defaults (input had none)",
             r.runInfoBytes, r.imageInfoBytes);

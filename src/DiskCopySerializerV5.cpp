@@ -143,7 +143,7 @@ namespace dfitodiskcopy
         run.cbeiNormal.harmonization = 0;
         copyTaste(run.cbeiNormal.snrTasteFile,  sizeof(run.cbeiNormal.snrTasteFile),  "SNRT_00.params.ini");
         copyTaste(run.cbeiNormal.tnrTasteFile,  sizeof(run.cbeiNormal.tnrTasteFile),  "TNRT_00.params.ini");
-        copyTaste(run.cbeiNormal.cttTasteFile,  sizeof(run.cbeiNormal.cttTasteFile),  "CTT_FM_04.params.ini");
+        copyTaste(run.cbeiNormal.cttTasteFile,  sizeof(run.cbeiNormal.cttTasteFile),  "CTT_FM_00.params.ini");
         copyTaste(run.cbeiNormal.edgkTasteFile, sizeof(run.cbeiNormal.edgkTasteFile), "EDGK_00.params.ini");
 
         run.cbeiSubtract.contrast      = 0;
@@ -153,7 +153,7 @@ namespace dfitodiskcopy
         run.cbeiSubtract.harmonization = 0;
         copyTaste(run.cbeiSubtract.snrTasteFile,  sizeof(run.cbeiSubtract.snrTasteFile),  "SNRT_00.params.ini");
         copyTaste(run.cbeiSubtract.tnrTasteFile,  sizeof(run.cbeiSubtract.tnrTasteFile),  "TNRT_00.params.ini");
-        copyTaste(run.cbeiSubtract.cttTasteFile,  sizeof(run.cbeiSubtract.cttTasteFile),  "CTT_SM_01.params.ini");
+        copyTaste(run.cbeiSubtract.cttTasteFile,  sizeof(run.cbeiSubtract.cttTasteFile),  "CTT_SM_00.params.ini");
         copyTaste(run.cbeiSubtract.edgkTasteFile, sizeof(run.cbeiSubtract.edgkTasteFile), "EDGK_00.params.ini");
 
         // Acquisition-time CBEI == current settings for a fresh run (genuine converter
@@ -161,7 +161,7 @@ namespace dfitodiskcopy
         run.acqCbeiNormal   = run.cbeiNormal;
         run.acqCbeiSubtract = run.cbeiSubtract;
 
-        copyTaste(run.ContrastTransferLMTaste, sizeof(run.ContrastTransferLMTaste), "LMCTT_01.params.ini");
+        copyTaste(run.ContrastTransferLMTaste, sizeof(run.ContrastTransferLMTaste), "LMCTT_00.params.ini");
         copyTaste(run.apsTaste,                sizeof(run.apsTaste),                "APS_00.params.ini");
 
         // If the source object already carried a (3333,100A) run-info blob, adopt its

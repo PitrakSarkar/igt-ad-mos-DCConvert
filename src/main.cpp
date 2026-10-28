@@ -125,8 +125,11 @@ int main(int argc, char* argv[])
         report.intensifierSize.c_str(), report.iiFormat, report.iiRadius,
         report.columns, report.rows, report.frames,
         report.pixelsScaled ? " (resized)" : "",
-        report.pixelsConverted ? "converted to 16-bit MONOCHROME2"
-                               : "already 16-bit MONOCHROME2 (unchanged)",
+        report.pixelsMappedTo14Bit
+            ? (report.pixelsConverted ? "converted to MONOCHROME2, rescaled to native 14-bit"
+                                      : "rescaled to native 14-bit (0..16383)")
+            : (report.pixelsConverted ? "converted to MONOCHROME2 (native 14-bit)"
+                                      : "already native 14-bit range (values unchanged)"),
         report.cbeiFromInput ? "copied from input (3333,100A)"
                              : "filled with FD17 defaults (input had none)",
         report.runInfoBytes, report.imageInfoBytes);

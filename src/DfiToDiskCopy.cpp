@@ -26,6 +26,7 @@ namespace dfitodiskcopy
         constexpr Uint16 kImageInfoGroup = 0x9999;
         constexpr Uint16 kCreatorElement = 0x0010;
         constexpr Uint16 kDataElement    = 0x100A;
+        constexpr Uint32 kNativePixelMax = 0x3FFF;  // DFI native 14-bit pixels
         const char*      kCreator        = "A";
 
         // Detector table mirroring dcm_diskcopy.c readStandardAttributes: the
@@ -187,6 +188,71 @@ namespace dfitodiskcopy
             ds.findAndDeleteElement(DCM_PlanarConfiguration);
 
             converted = true;
+            return true;
+        }
+
+        // DFI stores pixels as 14-bit unsigned values in a signed 16-bit buffer,
+        // so values above 16383 display wrong (and above 32767 wrap negative).
+        // Signed input is offset to unsigned. Data already within 0..16383
+        // (e.g. a DFI DiskCopy export, which is 14-bit despite claiming 16 bits
+        // stored) is kept bit-identical; anything larger is rescaled linearly
+        // from its BitsStored range. Tags are rewritten to 14/13/unsigned.
+        bool MapPixelsToNative14Bit(DcmDataset& ds, bool& mapped, std::string& err)
+        {
+            mapped = false;
+
+            Uint16 bitsStored = 16;
+            ds.findAndGetUint16(DCM_BitsStored, bitsStored);
+            if (bitsStored == 0 || bitsStored > 16)
+                bitsStored = 16;
+            Uint16 pixelRepresentation = 0;
+            ds.findAndGetUint16(DCM_PixelRepresentation, pixelRepresentation);
+            const bool isSigned = (pixelRepresentation == 1);
+
+            const Uint16* src = nullptr;
+            unsigned long count = 0;
+            if (ds.findAndGetUint16Array(DCM_PixelData, src, &count).bad() || src == nullptr)
+            {
+                err = "cannot read 16-bit PixelData for 14-bit mapping.";
+                return false;
+            }
+
+            const Uint32 storedMask = (1u << bitsStored) - 1u;
+            const Uint32 signBit = 1u << (bitsStored - 1);
+            std::vector<Uint16> out(count, 0);
+            Uint32 maxValue = 0;
+            for (unsigned long i = 0; i < count; ++i)
+            {
+                Uint32 v = src[i] & storedMask;
+                if (isSigned)
+                    v ^= signBit;  // two's complement -> offset binary
+                out[i] = static_cast<Uint16>(v);
+                if (v > maxValue)
+                    maxValue = v;
+            }
+
+            const Uint32 nativeMax = kNativePixelMax;
+            if (maxValue > nativeMax)
+            {
+                const double scale = static_cast<double>(nativeMax) / storedMask;
+                for (unsigned long i = 0; i < count; ++i)
+                {
+                    const Uint32 v = static_cast<Uint32>(out[i] * scale + 0.5);
+                    out[i] = static_cast<Uint16>(v > nativeMax ? nativeMax : v);
+                }
+            }
+
+            OFCondition c = ds.putAndInsertUint16Array(DCM_PixelData, out.data(), count);
+            if (c.bad())
+            {
+                err = std::string("cannot write 14-bit PixelData: ") + c.text();
+                return false;
+            }
+            ds.putAndInsertUint16(DCM_BitsStored, 14);
+            ds.putAndInsertUint16(DCM_HighBit, 13);
+            ds.putAndInsertUint16(DCM_PixelRepresentation, 0);
+
+            mapped = isSigned || maxValue > nativeMax;
             return true;
         }
 
@@ -369,6 +435,10 @@ namespace dfitodiskcopy
             if (!NormalizePixelsToMono16(ds, rows, columns, frames, pixelsConverted, rep.message))
                 return ConvertStatus::UnsupportedPixelData;
 
+            bool pixelsMapped = false;
+            if (!MapPixelsToNative14Bit(ds, pixelsMapped, rep.message))
+                return ConvertStatus::UnsupportedPixelData;
+
             // Optional aspect-preserving resize.
             bool pixelsScaled = false;
             if (!ResizeMono16(ds, rows, columns, frames, opt.maxDim, pixelsScaled, rep.message))
@@ -418,6 +488,7 @@ namespace dfitodiskcopy
             rep.frames = static_cast<int>(frames);
             rep.pixelsConverted = pixelsConverted;
             rep.pixelsScaled = pixelsScaled;
+            rep.pixelsMappedTo14Bit = pixelsMapped;
             rep.cbeiFromInput = cbeiFromInput;
             rep.runInfoBytes = runInfo.size();
             rep.imageInfoBytes = imageInfo.size();

@@ -6,6 +6,14 @@ receiver by normalising the pixels to 16-bit MONOCHROME2, optionally rescaling,
 and inserting the required private run-info (3333,100A) and image-info
 (9999,100A) record blobs.
 
+Pixel values are written in the DFI native range: 14-bit unsigned (0..16383),
+BitsStored 14 / HighBit 13 / PixelRepresentation 0. Signed input is offset to
+unsigned; input whose values exceed 16383 (e.g. full-range 16-bit or converted
+8-bit/RGB) is rescaled linearly from its BitsStored range. Input already within
+0..16383 (such as a DFI DiskCopy export) keeps its pixel values unchanged.
+DFI stores pixels in a signed 16-bit buffer, so full-range values would
+otherwise display wrong or wrap negative.
+
 
 Command-line tool (dcconvert.exe)
 ---------------------------------
