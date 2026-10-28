@@ -1,7 +1,10 @@
 #include <cstdio>
+#include <cstring>
 
 #include "DiskCopySerializerV5.h"
 #include "Version.h"
+#include "DiskCopyData_V3.h"
+#include "DiskCopyData_V5.h"
 
 using namespace dfitodiskcopy;
 
@@ -43,9 +46,51 @@ int main()
         ++failures;
     }
 
+    in.rows = in.columns = 1000;
+    in.numberOfFrames = 10;
+    const auto runV3 = BuildRunInfoBlobV3(in);
+    const auto imagesV3 = BuildImageInfoBlobV3(in);
+    if (runV3.size() != 4252 || imagesV3.size() != 22840)
+    {
+        std::printf("FAIL: VER_3 record sizes\n");
+        ++failures;
+    }
+    for (int i = 0; i < in.numberOfFrames; ++i)
+    {
+        DiskCopyDataVer03::IMAGE_RECORD_STRUCT_V3 image;
+        std::memcpy(&image, imagesV3.data() + i * sizeof(image), sizeof(image));
+        if (image.imageNr != i + 1 || static_cast<int>(image.iiFormat) != 8 || image.iiRadius != 301)
+        {
+            std::printf("FAIL: native image record %d\n", i);
+            ++failures;
+        }
+    }
+
+    DiskCopyDataVer03::RUN_RECORD_STRUCT_V3 nativeRun;
+    std::memcpy(&nativeRun, runV3.data() + 800, sizeof(nativeRun));
+    if (nativeRun.nrImage != 10 || nativeRun.irisAperture != 141 ||
+        nativeRun.cleanCircleRadius.radius != 500 ||
+        std::strcmp(nativeRun.cbeiNormal.cttTasteFile, "CTT_FM_04.params.ini") != 0)
+    {
+        std::printf("FAIL: VER_3 display settings\n");
+        ++failures;
+    }
+
+    const auto sourceV5 = BuildRunInfoBlobV5(in);
+    in.sourceRunInfoBlob = sourceV5.data();
+    in.sourceRunInfoBlobSize = sourceV5.size();
+    const auto convertedV3 = BuildRunInfoBlobV3(in);
+    std::memcpy(&nativeRun, convertedV3.data() + 800, sizeof(nativeRun));
+    if (std::strcmp(nativeRun.cbeiNormal.cttTasteFile, "CTT_FM_04.params.ini") != 0 ||
+        nativeRun.cleanCircleRadius.radius != 500)
+    {
+        std::printf("FAIL: VER_5 to VER_3 recipe conversion\n");
+        ++failures;
+    }
+
     if (failures == 0)
-        std::printf("coretest: ALL PASS (run-info=%zu, image-info=%zu for %d frames)\n",
-                    runBlob.size(), imgBlob.size(), in.numberOfFrames);
+        std::printf("coretest: ALL PASS (VER_5 run=%zu; native run=%zu, images=%zu for %d frames)\n",
+                    runBlob.size(), runV3.size(), imagesV3.size(), in.numberOfFrames);
     else
         std::printf("coretest: %d FAILURE(S)\n", failures);
 

@@ -76,6 +76,8 @@ namespace dfitodiskcopy
         std::string out;
         for (const auto& info : kVersions)
         {
+            if (info.version != Version::V3 && info.version != Version::V5)
+                continue;
             out += "  ";
             out += info.id;
             out += "  (";

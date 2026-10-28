@@ -2,9 +2,10 @@
 
 #include <cstring>
 
-// The versioned DiskCopy record layout for Zenition 9.x (VER_5).
+// Versioned private-record layouts; VER_3 matches the native Zen90 receiver.
 // Self-contained: only needs <Windows.h> (pulled in by DiskCopyDataGlob.h).
 #include "DiskCopyData_V5.h"
+#include "DiskCopyData_V3.h"
 
 namespace dfitodiskcopy
 {
@@ -15,6 +16,50 @@ namespace dfitodiskcopy
         using DiskCopyDataVer05::RUN_RECORD_STRUCT_V5;
         using DiskCopyDataVer05::IMAGE_RECORD_STRUCT_V5;
 
+        static_assert(sizeof(DiskCopyDataVer03::PATIENT_RECORD_STRUCT_DISKCOPY10_V3) +
+                      sizeof(DiskCopyDataVer03::EXAM_RECORD_STRUCT_DISKCOPY10_V3) +
+                      sizeof(DiskCopyDataVer03::RUN_RECORD_STRUCT_V3) +
+                      sizeof(DiskCopyDataVer03::IMAGE_RECORD_STRUCT_V3) == kRunInfoV3Size,
+                      "Native Zen90 private-record ABI changed");
+        static_assert(sizeof(PATIENT_RECORD_STRUCT_DISKCOPY10_V5) + sizeof(EXAM_RECORD_STRUCT_DISKCOPY10_V5) +
+                      sizeof(RUN_RECORD_STRUCT_V5) + sizeof(IMAGE_RECORD_STRUCT_V5) == kRunInfoV5Size,
+                      "VER_5 private-record ABI changed");
+
+        void SetImageDimensions(DiskCopyDataVer03::IMAGE_RECORD_STRUCT_V3&, const SerializerInput&)
+        {
+        }
+
+        void SetImageDimensions(IMAGE_RECORD_STRUCT_V5& image, const SerializerInput& in)
+        {
+            image.width = in.columns;
+            image.height = in.rows;
+        }
+
+        void SetRunExtras(DiskCopyDataVer03::RUN_RECORD_STRUCT_V3& run, const SerializerInput&)
+        {
+            run.cleanCircleRadius.centre.xPos = 500;
+            run.cleanCircleRadius.centre.yPos = 500;
+            run.cleanCircleRadius.radius = 500;
+        }
+
+        void SetRunExtras(RUN_RECORD_STRUCT_V5& run, const SerializerInput&)
+        {
+            run.zoomFactor = 100;
+        }
+
+        template <typename TargetRun, typename SourceRun>
+        void CopyRecipes(TargetRun& target, const SourceRun& source)
+        {
+            static_assert(sizeof(target.cbeiNormal) == sizeof(source.cbeiNormal), "CBEI layout mismatch");
+            std::memcpy(&target.acqCbeiNormal, &source.acqCbeiNormal, sizeof(target.acqCbeiNormal));
+            std::memcpy(&target.cbeiNormal, &source.cbeiNormal, sizeof(target.cbeiNormal));
+            std::memcpy(&target.acqCbeiSubtract, &source.acqCbeiSubtract, sizeof(target.acqCbeiSubtract));
+            std::memcpy(&target.cbeiSubtract, &source.cbeiSubtract, sizeof(target.cbeiSubtract));
+            std::memcpy(target.ContrastTransferLMTaste, source.ContrastTransferLMTaste,
+                        sizeof(target.ContrastTransferLMTaste));
+            std::memcpy(target.apsTaste, source.apsTaste, sizeof(target.apsTaste));
+        }
+
         template <typename T>
         void AppendStruct(std::vector<std::uint8_t>& out, const T& s)
         {
@@ -24,9 +69,10 @@ namespace dfitodiskcopy
 
         // Fill one IMAGE record. Standard tags carry patient/exam identity;
         // this only sets the internal fields StoreImage needs per image.
-        IMAGE_RECORD_STRUCT_V5 MakeImageRecord(const SerializerInput& in, int imageNr)
+        template <typename Image>
+        Image MakeImageRecord(const SerializerInput& in, int imageNr)
         {
-            IMAGE_RECORD_STRUCT_V5 img;
+            Image img;
             std::memset(&img, 0, sizeof(img));
             img.imageNr  = imageNr;
             // Values verified against a genuine FD17 run.img export (kept=FALSE,
@@ -36,24 +82,22 @@ namespace dfitodiskcopy
             // must form the supported FD17 triple or CoGetDetectorZoomFactor goes
             // degenerate -> black image + fault on re-view.
             img.kept     = FALSE;
-            img.iiFormat = static_cast<DiskCopyDataVer05::II_FMT_ENUM_V5>(in.iiFormat);
+            img.iiFormat = static_cast<decltype(img.iiFormat)>(in.iiFormat);
             img.iiRadius = in.iiRadius;
             // width/height are the real pixel dimensions and, for a genuine DiskCopy
             // media object, equal the 1000x1000 stored-image size (resize input with
             // --max-dim 1000). The SCP receiver copies width*height*2 pixel bytes.
-            img.width    = in.columns;
-            img.height   = in.rows;
-            img.snapshotImgWidth  = 0;
-            img.snapshotImgHeight = 0;
+            SetImageDimensions(img, in);
             return img;
         }
     }
 
-    std::vector<std::uint8_t> BuildRunInfoBlobV5(const SerializerInput& in)
+    template <typename Patient, typename Exam, typename Run, typename Image>
+    std::vector<std::uint8_t> BuildRunInfoBlob(const SerializerInput& in)
     {
-        PATIENT_RECORD_STRUCT_DISKCOPY10_V5 patient;
-        EXAM_RECORD_STRUCT_DISKCOPY10_V5    exam;
-        RUN_RECORD_STRUCT_V5                run;
+        Patient patient;
+        Exam exam;
+        Run run;
         std::memset(&patient, 0, sizeof(patient));
         std::memset(&exam,    0, sizeof(exam));
         std::memset(&run,     0, sizeof(run));
@@ -65,7 +109,7 @@ namespace dfitodiskcopy
 
         run.nrImage    = in.numberOfFrames;
         run.runNr      = in.runNumber;
-        run.iiFormat   = DiskCopyDataVer05::II_FMT_ENUM_V5::II_UNDEFINED;
+        run.iiFormat   = static_cast<decltype(run.iiFormat)>(0);
         run.squareImage = (in.rows == in.columns) ? TRUE : FALSE;
 
         // Mirror the DFI receiver's fillStructsWithDefaults() RUN display defaults.
@@ -125,18 +169,17 @@ namespace dfitodiskcopy
         // brightness/edge and the LM/APS tastes). These are pixel-geometry independent,
         // so they stay valid after resize; everything else above (geometry, dims,
         // detector) is always freshly built so --max-dim/--detector still apply.
-        if (in.sourceRunInfoBlob != nullptr &&
-            in.sourceRunInfoBlobSize >= sizeof(patient) + sizeof(exam) + sizeof(run))
+        if (in.sourceRunInfoBlob != nullptr && in.sourceRunInfoBlobSize == kRunInfoV5Size)
         {
             RUN_RECORD_STRUCT_V5 src;
             std::memcpy(&src, in.sourceRunInfoBlob + sizeof(patient) + sizeof(exam), sizeof(src));
-            run.acqCbeiNormal   = src.acqCbeiNormal;
-            run.cbeiNormal      = src.cbeiNormal;
-            run.acqCbeiSubtract = src.acqCbeiSubtract;
-            run.cbeiSubtract    = src.cbeiSubtract;
-            std::memcpy(run.ContrastTransferLMTaste, src.ContrastTransferLMTaste,
-                        sizeof(run.ContrastTransferLMTaste));
-            std::memcpy(run.apsTaste, src.apsTaste, sizeof(run.apsTaste));
+            CopyRecipes(run, src);
+        }
+        else if (in.sourceRunInfoBlob != nullptr && in.sourceRunInfoBlobSize == kRunInfoV3Size)
+        {
+            DiskCopyDataVer03::RUN_RECORD_STRUCT_V3 src;
+            std::memcpy(&src, in.sourceRunInfoBlob + sizeof(patient) + sizeof(exam), sizeof(src));
+            CopyRecipes(run, src);
         }
 
         run.shuttered = FALSE;
@@ -154,13 +197,9 @@ namespace dfitodiskcopy
         run.catheterRun   = FALSE;
         run.landMarkLevel = DiskCopyGlobal::LEVEL_ENUM::LVL_OFF;
         run.magnified     = FALSE;
-        run.panZoom       = FALSE;
-        run.zoomFactor    = 100;   // genuine Version05FBConverter sets 100 (no zoom)
-        run.run3D         = FALSE;
-        run.imgFlipped    = FALSE;
-        run.imgMirrored   = FALSE;
+        SetRunExtras(run, in);
 
-        const IMAGE_RECORD_STRUCT_V5 image = MakeImageRecord(in, in.imageNumberBase);
+        const Image image = MakeImageRecord<Image>(in, in.imageNumberBase);
 
         std::vector<std::uint8_t> out;
         out.reserve(sizeof(patient) + sizeof(exam) + sizeof(run) + sizeof(image));
@@ -171,15 +210,41 @@ namespace dfitodiskcopy
         return out;
     }
 
-    std::vector<std::uint8_t> BuildImageInfoBlobV5(const SerializerInput& in)
+    template <typename Image>
+    std::vector<std::uint8_t> BuildImageInfoBlob(const SerializerInput& in)
     {
         std::vector<std::uint8_t> out;
-        out.reserve(sizeof(IMAGE_RECORD_STRUCT_V5) * static_cast<std::size_t>(in.numberOfFrames));
+        out.reserve(sizeof(Image) * static_cast<std::size_t>(in.numberOfFrames));
         for (int i = 0; i < in.numberOfFrames; ++i)
         {
-            const IMAGE_RECORD_STRUCT_V5 img = MakeImageRecord(in, in.imageNumberBase + i);
+            const Image img = MakeImageRecord<Image>(in, in.imageNumberBase + i);
             AppendStruct(out, img);
         }
         return out;
+    }
+
+    std::vector<std::uint8_t> BuildRunInfoBlobV3(const SerializerInput& in)
+    {
+        return BuildRunInfoBlob<DiskCopyDataVer03::PATIENT_RECORD_STRUCT_DISKCOPY10_V3,
+                                DiskCopyDataVer03::EXAM_RECORD_STRUCT_DISKCOPY10_V3,
+                                DiskCopyDataVer03::RUN_RECORD_STRUCT_V3,
+                                DiskCopyDataVer03::IMAGE_RECORD_STRUCT_V3>(in);
+    }
+
+    std::vector<std::uint8_t> BuildImageInfoBlobV3(const SerializerInput& in)
+    {
+        return BuildImageInfoBlob<DiskCopyDataVer03::IMAGE_RECORD_STRUCT_V3>(in);
+    }
+
+    std::vector<std::uint8_t> BuildRunInfoBlobV5(const SerializerInput& in)
+    {
+        return BuildRunInfoBlob<PATIENT_RECORD_STRUCT_DISKCOPY10_V5,
+                                EXAM_RECORD_STRUCT_DISKCOPY10_V5,
+                                RUN_RECORD_STRUCT_V5, IMAGE_RECORD_STRUCT_V5>(in);
+    }
+
+    std::vector<std::uint8_t> BuildImageInfoBlobV5(const SerializerInput& in)
+    {
+        return BuildImageInfoBlob<IMAGE_RECORD_STRUCT_V5>(in);
     }
 }

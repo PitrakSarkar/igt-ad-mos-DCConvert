@@ -9,7 +9,9 @@
 //
 // Usage:
 //   dcconvert_demo <input.dcm> <output.dcm>
-//                  [--version VER_5] [--max-dim N] [--detector NAME]
+//                  [--version VER_3|VER_5] [--max-dim N] [--detector NAME]
+// Example VER_3 run:
+//   dcconvert_demo input.dcm output-ver3.dcm --version VER_3
 //
 // Build it as part of this project, or link it against an installed package:
 //   find_package(DfiToDiskCopy CONFIG REQUIRED)
@@ -75,8 +77,9 @@ namespace
     {
         std::printf(
             "Usage: dcconvert_demo <input.dcm> <output.dcm>\n"
-            "                      [--version VER_5] [--max-dim N] [--detector NAME]\n\n"
-            "Demonstrates the DfiToDiskCopy library (ConvertFile + ConvertBuffer).\n");
+            "                      [--version VER_3|VER_5] [--max-dim N] [--detector NAME]\n\n"
+            "Demonstrates the DfiToDiskCopy library (ConvertFile + ConvertBuffer).\n"
+            "VER_3 requires 1000x1000 output geometry and does not support PX2020.\n");
     }
 }
 

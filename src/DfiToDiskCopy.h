@@ -46,7 +46,7 @@ namespace dfitodiskcopy
     // defaults (VER_5, auto-detector, --max-dim 1000).
     struct ConvertOptions
     {
-        // Target DiskCopy format. Only Version::V5 is currently implemented.
+        // Target DiskCopy format. V3 (native Zen90 1000x1000) and V5 are implemented.
         Version version = Version::V5;
 
         // Target detector name: one of FD17, FD15, FD12, BV312, PX2020.

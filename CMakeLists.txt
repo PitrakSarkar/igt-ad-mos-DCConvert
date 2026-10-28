@@ -48,6 +48,7 @@ endif()
 # against the ABI probe values. No DCMTK required.
 add_executable(coretest src/coretest.cpp)
 target_link_libraries(coretest PRIVATE dccore)
+target_include_directories(coretest PRIVATE "${DISKCOPY_INC}")
 
 # ---------------------------------------------------------------------------
 # Milestone 2: the conversion library + converter CLI. Requires DCMTK (vcpkg).

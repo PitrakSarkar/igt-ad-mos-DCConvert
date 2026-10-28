@@ -9,11 +9,35 @@ and inserting the required private run-info (3333,100A) and image-info
 
 Command-line tool (dcconvert.exe)
 ---------------------------------
-dcconvert.exe --version VER_5 <input.dcm> <output.dcm> [--max-dim <N>]
+dcconvert.exe --version <VER_3|VER_5> <input.dcm> <output.dcm> [--max-dim <N>]
               [--detector <name>] [--set-software-version]
 
 Example:
 build\Release> dcconvert.exe --version VER_5 "C:\...\IM_0017" "C:\...\out.dcm" --max-dim 1000
+
+Native Zen90 / K:\DFI compatibility
+----------------------------------
+Use --version VER_3 --max-dim 1000 for the native K:\DFI receiver:
+
+    dcconvert.exe --version VER_3 input.dcm output_zen90.dcm --max-dim 1000
+
+The reference header set's VER_3 schema matches this receiver's native ABI:
+336-byte patient, 464-byte exam, 1168-byte run, and 2284-byte image records.
+Its run-info blob is 4252 bytes; image-info is 2284 bytes per frame.
+Do not infer compatibility from product release names: the reference's
+historical VER_4 header differs from the native target's VER_4 header.
+VER_5 remains the default library option for the reference platform.
+
+VER_3 requires final geometry of 1000x1000 and does not support PX2020.
+Recipes can be adopted from either a VER_3 or VER_5 source run-info blob;
+all other source record sizes are rejected. Patient ID and standard
+patient/study tags are preserved, not replaced with the selected patient's
+identity. The receiver appends to an existing patient only when Patient ID
+matches; a different ID still creates a different patient.
+
+Reconvert older VER_5 outputs before sending them to K:\DFI. Native receivers
+with private-record validation reject incompatible layouts rather than copying
+them into the wrong structures (which corrupts run/image display settings).
 
 
 Library (dcconvertlib)

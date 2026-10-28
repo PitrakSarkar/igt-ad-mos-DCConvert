@@ -286,9 +286,9 @@ namespace dfitodiskcopy
             rep.versionId = vinfo->id;
             rep.versionFriendlyName = vinfo->friendlyName;
 
-            if (opt.version != Version::V5)
+            if (opt.version != Version::V3 && opt.version != Version::V5)
             {
-                rep.message = "only VER_5 (Zenition 9.x.x) is implemented so far.";
+                rep.message = "only VER_3 (native Zen90 layout) and VER_5 (Zenition 9.x.x) are implemented.";
                 return ConvertStatus::UnsupportedVersion;
             }
 
@@ -310,6 +310,11 @@ namespace dfitodiskcopy
                     sourceRunInfo.assign(blob, blob + blobLen);
             }
             const bool cbeiFromInput = !sourceRunInfo.empty();
+            if (cbeiFromInput && sourceRunInfo.size() != kRunInfoV3Size && sourceRunInfo.size() != kRunInfoV5Size)
+            {
+                rep.message = "input private run-info is not a supported VER_3 or VER_5 record layout.";
+                return ConvertStatus::SerializationFailed;
+            }
 
             // Resolve detector: explicit --detector > input's (0018,1162) > FD17.
             const DetectorInfo* detector = nullptr;
@@ -338,6 +343,11 @@ namespace dfitodiskcopy
             rep.intensifierSize = detector->intensifierSize;
             rep.iiFormat = detector->iiFormat;
             rep.iiRadius = detector->iiRadius;
+            if (opt.version == Version::V3 && std::string(detector->name) == "PX2020")
+            {
+                rep.message = "PX2020 is not supported by the native Zen90 receiver.";
+                return ConvertStatus::UnknownDetector;
+            }
 
             // Extract geometry.
             Uint16 rows = 0, columns = 0;
@@ -364,6 +374,12 @@ namespace dfitodiskcopy
             if (!ResizeMono16(ds, rows, columns, frames, opt.maxDim, pixelsScaled, rep.message))
                 return ConvertStatus::UnsupportedPixelData;
 
+            if (opt.version == Version::V3 && (rows != 1000 || columns != 1000))
+            {
+                rep.message = "VER_3 requires the target's native 1000x1000 image geometry.";
+                return ConvertStatus::UnsupportedPixelData;
+            }
+
             // Keep NumberOfFrames explicit so per-frame buffering matches.
             char framesText[16];
             std::snprintf(framesText, sizeof(framesText), "%d", static_cast<int>(frames));
@@ -382,9 +398,10 @@ namespace dfitodiskcopy
             in.sourceRunInfoBlob     = cbeiFromInput ? sourceRunInfo.data() : nullptr;
             in.sourceRunInfoBlobSize = sourceRunInfo.size();
 
-            // Build and insert the private groups (VER_5).
-            const std::vector<std::uint8_t> runInfo   = BuildRunInfoBlobV5(in);
-            const std::vector<std::uint8_t> imageInfo = BuildImageInfoBlobV5(in);
+            const std::vector<std::uint8_t> runInfo = opt.version == Version::V3
+                ? BuildRunInfoBlobV3(in) : BuildRunInfoBlobV5(in);
+            const std::vector<std::uint8_t> imageInfo = opt.version == Version::V3
+                ? BuildImageInfoBlobV3(in) : BuildImageInfoBlobV5(in);
 
             if (InsertPrivateGroup(ds, kRunInfoGroup, runInfo).bad() ||
                 InsertPrivateGroup(ds, kImageInfoGroup, imageInfo).bad())
