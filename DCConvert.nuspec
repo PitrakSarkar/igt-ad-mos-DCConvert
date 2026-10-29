@@ -1,0 +1,21 @@
+<?xml version="1.0"?>  
+<package>  
+  <metadata>  
+    <id>DCConvert</id>  
+    <version>1.0.0</version>  
+    <authors>P. Sarkar</authors>  
+    <owners>Copyright © 2026 Philips Medical Systems Nederland B.V.</owners>  
+    <description>Converter to make DICOM image compatible for MoS.</description>  
+    <tags>native</tags>  
+    <dependencies>  
+    </dependencies>  
+  </metadata>  
+  <files>  
+    <file src=".\build\Debug\*.lib" target="lib\Debug"/> 
+    <file src=".\build\Debug\*.dll" target="lib\Debug"/> 
+    <file src=".\build\Release\*.lib" target="lib\Release"/> 
+    <file src=".\build\Release\*.dll" target="lib\Release"/> 
+    <file src=".\src\DfiToDiskCopy.h" target="inc"/> 
+    <file src=".\src\Version.h" target="inc"/> 
+  </files>  
+</package>  
